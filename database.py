@@ -13,12 +13,13 @@ def create_tables():
     connection = get_connection()
 
     connection.execute("""
-        CREATE TABLE IF NOT EXISTS users (
+        CREATE TABLE IF NOT EXISTS gpu_hosts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            role TEXT NOT NULL
+            user_id INTEGER NOT NULL,
+            gpu_name TEXT,
+            vram TEXT,
+            status TEXT NOT NULL DEFAULT 'OFFLINE',
+            FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
 
