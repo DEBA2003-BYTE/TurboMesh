@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TurboMesh</title>
+
+```
+<style>
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f7fa;
+        color: #1f2937;
+    }
+
+    nav {
+        background: #111827;
+        color: white;
+        padding: 18px 50px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    nav h1 {
+        font-size: 24px;
+    }
+
+    nav span {
+        color: #9ca3af;
+    }
+
+    .hero {
+        max-width: 1000px;
+        margin: 80px auto;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .hero h2 {
+        font-size: 48px;
+        margin-bottom: 20px;
+    }
+
+    .hero p {
+        font-size: 18px;
+        color: #6b7280;
+        margin-bottom: 40px;
+    }
+
+    .options {
+        display: flex;
+        gap: 25px;
+        justify-content: center;
+    }
+
+    .card {
+        background: white;
+        width: 300px;
+        padding: 35px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h3 {
+        margin-bottom: 15px;
+    }
+
+    .card p {
+        color: #6b7280;
+        margin-bottom: 25px;
+    }
+
+    button {
+        border: none;
+        padding: 12px 25px;
+        border-radius: 7px;
+        background: #2563eb;
+        color: white;
+        cursor: pointer;
+        font-size: 15px;
+    }
+
+    button:hover {
+        background: #1d4ed8;
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+```
+<nav>
+    <h1>TurboMesh</h1>
+    <span>Remote GPU Computing</span>
+</nav>
+
+<section class="hero">
+
+    <h2>Share GPU Power</h2>
+
+    <p>
+        Allow authorized users to remotely execute
+        GPU workloads on your computer.
+    </p>
+
+    <div class="options">
+
+        <div class="card">
+            <h3>GPU Host</h3>
+
+            <p>
+                Share your GPU with authorized users
+                and control who can access it.
+            </p>
+            <button onclick="window.location.href='/register'">
+                Create Host Account
+            </button>
+        </div>
+
+        <div class="card">
+            <h3>GPU User</h3>
+
+            <p>
+                Request access to available GPUs
+                and submit GPU workloads.
+            </p>
+
+            <button onclick="window.location.href='/register'">
+                Create User Account
+            </button>
+        </div>
+
+    </div>
+
+</section>
+
+<script>
+    function hostLogin() {
+        alert("Host login will be implemented next.");
+    }
+
+    function userLogin() {
+        alert("User login will be implemented next.");
+    }
+</script>
+```
+
+</body>
+</html>
