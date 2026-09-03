@@ -18,6 +18,12 @@ def home(request: Request):
         {"request": request}
     )
 
+@app.get("/login")
+def login_page(request: Request):
+    return templates.TemplateResponse(
+        "login.html",
+        {"request": request}
+    )
 
 @app.get("/register")
 def register_page(request: Request):
