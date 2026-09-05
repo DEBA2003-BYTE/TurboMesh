@@ -164,11 +164,59 @@
 
             <h3>Access Requests</h3>
 
-            <p class="info">
-                No pending access requests.
-            </p>
+            {% if access_requests %}
 
-        </div>
+                {% for access_request in access_requests %}
+
+                    <div class="host">
+
+                        <h4>{{ access_request["name"] }}</h4>
+
+                        <p>
+                            Email: {{ access_request["email"] }}
+                        </p>
+
+                        <p>
+                            Status: {{ access_request["status"] }}
+                        </p>
+
+                        <form method="post" action="/approve-request">
+                            <input
+                                type="hidden"
+                                name="request_id"
+                                value="{{ access_request['id'] }}"
+                            >
+
+                            <button type="submit">
+                                Approve
+                            </button>
+                        </form>
+
+                        <form method="post" action="/reject-request">
+                            <input
+                                type="hidden"
+                                name="request_id"
+                                value="{{ access_request['id'] }}"
+                            >
+
+                            <button type="submit">
+                                Reject
+                            </button>
+                        </form>
+
+                    </div>
+
+                {% endfor %}
+
+            {% else %}
+
+                <p class="info">
+                    No pending access requests.
+                </p>
+
+            {% endif %}
+
+</div>
 
     </div>
 

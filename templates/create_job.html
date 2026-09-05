@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Create GPU Job - TurboMesh</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f5f7fa;
+            color: #1f2937;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 60px auto;
+            background: white;
+            padding: 35px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        p {
+            color: #6b7280;
+            margin-bottom: 25px;
+        }
+
+        label {
+            display: block;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 7px;
+            font-size: 15px;
+        }
+
+        button {
+            width: 100%;
+            margin-top: 30px;
+            padding: 13px;
+            border: none;
+            border-radius: 7px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .host-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f9fafb;
+            border-radius: 7px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>Create GPU Job</h1>
+
+        <p>
+            Submit a workload to a GPU host you have access to.
+        </p>
+
+        <form method="post" action="/create-job">
+
+            <label for="host_id">
+                Select GPU Host
+            </label>
+
+            <select id="host_id" name="host_id" required>
+
+                {% for host in hosts %}
+
+                <option value="{{ host['id'] }}">
+                    {{ host['name'] }} -
+                    {{ host['gpu_name'] }}
+                </option>
+
+                {% endfor %}
+
+            </select>
+
+
+            <label for="job_type">
+                Select Workload
+            </label>
+
+            <select id="job_type" name="job_type" required>
+
+                <option value="IMAGE_PROCESSING">
+                    Image Processing
+                </option>
+
+                <option value="MODEL_TRAINING">
+                    Model Training
+                </option>
+
+                <option value="MODEL_INFERENCE">
+                    Model Inference
+                </option>
+
+                <option value="VIDEO_PROCESSING">
+                    Video Processing
+                </option>
+
+            </select>
+
+
+            <button type="submit">
+                Submit GPU Job
+            </button>
+
+        </form>
+
+    </div>
+
+</body>
+
+</html>

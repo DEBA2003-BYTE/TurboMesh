@@ -125,75 +125,104 @@
             </p>
 
         </div>
+        <a href="/create-job">
+            <button>
+                Create GPU Job
+            </button>
+        </a>
 
 
         <div class="card">
 
             <h3>Available GPU Hosts</h3>
+            {% if hosts %}
+
+            {% for host in hosts %}
 
             <div class="host">
 
-                <h4>GPU Host 1</h4>
+                <h4>{{ host["name"] }}</h4>
 
                 <p>
-                    GPU: Waiting for host connection
+                    GPU: {{ host["gpu_name"] }}
                 </p>
 
                 <p>
-                    VRAM: --
+                    VRAM: {{ host["vram"] }}
                 </p>
 
                 <p>
                     Status:
                     <span class="available">
-                        Available
+                        {{ host["status"] }}
                     </span>
                 </p>
 
-                <button>
-                    Request GPU Access
-                </button>
+               <form method="post" action="/request-access">
+                    <input
+                        type="hidden"
+                        name="host_id"
+                        value="{{ host['id'] }}"
+                    >
+
+                    <button type="submit">
+                        Request GPU Access
+                    </button>
+                </form>
 
             </div>
 
+            {% endfor %}
 
-            <div class="host">
+            {% else %}
 
-                <h4>GPU Host 2</h4>
+            <p class="empty">
+                No GPU hosts are currently online.
+            </p>
 
-                <p>
-                    GPU: Waiting for host connection
-                </p>
-
-                <p>
-                    VRAM: --
-                </p>
-
-                <p>
-                    Status:
-                    <span class="available">
-                        Available
-                    </span>
-                </p>
-
-                <button>
-                    Request GPU Access
-                </button>
-
-            </div>
+            {% endif %}
 
         </div>
 
 
         <div class="card">
 
-            <h3>My Access Requests</h3>
+    <h3>My Access Requests</h3>
 
-            <p class="empty">
-                You haven't submitted any GPU access requests yet.
-            </p>
+    {% if access_requests %}
 
-        </div>
+        {% for access_request in access_requests %}
+
+            <div class="host">
+
+                <h4>
+                    {{ access_request["host_name"] }}
+                </h4>
+
+                <p>
+                    GPU: {{ access_request["gpu_name"] }}
+                </p>
+
+                <p>
+                    Status:
+                    <strong>
+                        {{ access_request["status"] }}
+                    </strong>
+                </p>
+
+            </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p class="empty">
+            You haven't submitted any GPU access requests yet.
+        </p>
+
+    {% endif %}
+
+</div>
 
     </div>
 

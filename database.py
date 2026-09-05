@@ -22,6 +22,28 @@ def create_tables():
             FOREIGN KEY (user_id) REFERENCES users(id)
         )
     """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS access_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            host_id INTEGER NOT NULL,
+            status TEXT NOT NULL DEFAULT 'PENDING',
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (host_id) REFERENCES gpu_hosts(id)
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS jobs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            host_id INTEGER NOT NULL,
+            job_type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'QUEUED',
+            result TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id),
+            FOREIGN KEY (host_id) REFERENCES gpu_hosts(id)
+        )
+    """)
 
     connection.commit()
     connection.close()
