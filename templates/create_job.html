@@ -45,6 +45,16 @@
             border: 1px solid #d1d5db;
             border-radius: 7px;
             font-size: 15px;
+            background: white;
+        }
+
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 7px;
+            background: white;
+            font-size: 14px;
         }
 
         button {
@@ -82,13 +92,21 @@
             Submit a workload to a GPU host you have access to.
         </p>
 
-        <form method="post" action="/create-job">
+        <form
+            method="post"
+            action="/create-job"
+            enctype="multipart/form-data"
+        >
 
             <label for="host_id">
                 Select GPU Host
             </label>
 
-            <select id="host_id" name="host_id" required>
+            <select
+                id="host_id"
+                name="host_id"
+                required
+            >
 
                 {% for host in hosts %}
 
@@ -106,7 +124,11 @@
                 Select Workload
             </label>
 
-            <select id="job_type" name="job_type" required>
+            <select
+                id="job_type"
+                name="job_type"
+                required
+            >
 
                 <option value="IMAGE_PROCESSING">
                     Image Processing
@@ -125,6 +147,18 @@
                 </option>
 
             </select>
+
+
+            <label for="image">
+                Upload Image
+            </label>
+
+            <input
+                type="file"
+                id="image"
+                name="image"
+                accept="image/*"
+            >
 
 
             <button type="submit">

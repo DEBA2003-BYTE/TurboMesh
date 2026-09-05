@@ -40,6 +40,7 @@ def create_tables():
             job_type TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'QUEUED',
             result TEXT,
+            image_path TEXT,
             FOREIGN KEY (user_id) REFERENCES users(id),
             FOREIGN KEY (host_id) REFERENCES gpu_hosts(id)
         )

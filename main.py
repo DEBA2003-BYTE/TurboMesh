@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form
+from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
@@ -298,6 +298,26 @@ def user_dashboard(request: Request):
         (user_id,)
     ).fetchall()
 
+    jobs = connection.execute(
+        """
+        SELECT
+            jobs.id,
+            jobs.job_type,
+            jobs.status,
+            jobs.result,
+            users.name AS host_name,
+            gpu_hosts.gpu_name
+        FROM jobs
+        JOIN gpu_hosts
+        ON jobs.host_id = gpu_hosts.id
+        JOIN users
+        ON gpu_hosts.user_id = users.id
+        WHERE jobs.user_id = ?
+        ORDER BY jobs.id DESC
+        """,
+        (user_id,)
+    ).fetchall()
+
     connection.close()
 
     return templates.TemplateResponse(
@@ -305,7 +325,8 @@ def user_dashboard(request: Request):
         {
             "request": request,
             "hosts": hosts,
-            "access_requests": access_requests
+            "access_requests": access_requests,
+            "jobs": jobs
         }
     )
 
@@ -510,7 +531,8 @@ def register_host_gpu(gpu: GPUInfo):
 def create_job(
     request: Request,
     host_id: int = Form(...),
-    job_type: str = Form(...)
+    job_type: str = Form(...),
+    image: UploadFile = File(None)
 ):
 
     user_id = request.session.get("user_id")
@@ -538,6 +560,21 @@ def create_job(
         return {
             "error": "Invalid job type."
         }
+    image_path = None
+
+    if job_type == "IMAGE_PROCESSING":
+
+        if image is None:
+            return {
+                "error": "Please upload an image."
+            }
+
+        image_path = f"uploads/{image.filename}"
+
+        contents = image.file.read()
+
+        with open(image_path, "wb") as file:
+            file.write(contents)
 
     connection = get_connection()
 
@@ -565,15 +602,17 @@ def create_job(
             user_id,
             host_id,
             job_type,
-            status
+            status,
+            image_path
         )
-        VALUES (?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?)
         """,
         (
             user_id,
             host_id,
             job_type,
-            "QUEUED"
+            "QUEUED",
+            image_path
         )
     )
 
@@ -680,14 +719,15 @@ def get_next_job(user_id: int):
     connection.close()
 
     return {
-        "job": {
-            "id": job["id"],
-            "user_id": job["user_id"],
-            "host_id": job["host_id"],
-            "job_type": job["job_type"],
-            "status": "RUNNING"
-        }
+    "job": {
+        "id": job["id"],
+        "user_id": job["user_id"],
+        "host_id": job["host_id"],
+        "job_type": job["job_type"],
+        "status": "RUNNING",
+        "image_path": job["image_path"]
     }
+}
 
 class JobResult(BaseModel):
     status: str
