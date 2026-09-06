@@ -33,18 +33,19 @@ def create_tables():
         )
     """)
     connection.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            host_id INTEGER NOT NULL,
-            job_type TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT 'QUEUED',
-            result TEXT,
-            image_path TEXT,
-            output_path TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (host_id) REFERENCES gpu_hosts(id)
-        )
+    CREATE TABLE IF NOT EXISTS jobs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        host_id INTEGER NOT NULL,
+        job_type TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'QUEUED',
+        result TEXT,
+        image_path TEXT,
+        image_path_2 TEXT,
+        output_path TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (host_id) REFERENCES gpu_hosts(id)
+    )
     """)
 
     connection.commit()

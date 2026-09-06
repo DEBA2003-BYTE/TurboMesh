@@ -8,6 +8,12 @@
     <title>Create GPU Job - TurboMesh</title>
 
     <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: Arial, sans-serif;
             background: #f5f7fa;
@@ -15,7 +21,7 @@
         }
 
         .container {
-            max-width: 600px;
+            max-width: 650px;
             margin: 60px auto;
             background: white;
             padding: 35px;
@@ -27,7 +33,7 @@
             margin-bottom: 10px;
         }
 
-        p {
+        .description {
             color: #6b7280;
             margin-bottom: 25px;
         }
@@ -39,7 +45,8 @@
             font-weight: bold;
         }
 
-        select {
+        select,
+        input[type="file"] {
             width: 100%;
             padding: 12px;
             border: 1px solid #d1d5db;
@@ -49,12 +56,24 @@
         }
 
         input[type="file"] {
-            width: 100%;
             padding: 10px;
-            border: 1px solid #d1d5db;
+        }
+
+        .workload-info {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f3f4f6;
             border-radius: 7px;
-            background: white;
-            font-size: 14px;
+            color: #4b5563;
+            line-height: 1.5;
+        }
+
+        .upload-section {
+            margin-top: 20px;
+        }
+
+        .hidden {
+            display: none;
         }
 
         button {
@@ -72,13 +91,6 @@
         button:hover {
             background: #1d4ed8;
         }
-
-        .host-info {
-            margin-top: 20px;
-            padding: 15px;
-            background: #f9fafb;
-            border-radius: 7px;
-        }
     </style>
 </head>
 
@@ -88,31 +100,26 @@
 
         <h1>Create GPU Job</h1>
 
-        <p>
-            Submit a workload to a GPU host you have access to.
+        <p class="description">
+            Submit a GPU workload to a host you have access to.
         </p>
 
-        <form
-            method="post"
-            action="/create-job"
-            enctype="multipart/form-data"
-        >
+        <form method="post"
+              action="/create-job"
+              enctype="multipart/form-data">
+
+            <!-- GPU HOST -->
 
             <label for="host_id">
                 Select GPU Host
             </label>
 
-            <select
-                id="host_id"
-                name="host_id"
-                required
-            >
+            <select id="host_id" name="host_id" required>
 
                 {% for host in hosts %}
 
                 <option value="{{ host['id'] }}">
-                    {{ host['name'] }} -
-                    {{ host['gpu_name'] }}
+                    {{ host['name'] }} - {{ host['gpu_name'] }}
                 </option>
 
                 {% endfor %}
@@ -120,46 +127,93 @@
             </select>
 
 
+            <!-- WORKLOAD -->
+
             <label for="job_type">
-                Select Workload
+                Select Image Processing Workload
             </label>
 
-            <select
-                id="job_type"
-                name="job_type"
-                required
-            >
+            <select id="job_type"
+                    name="job_type"
+                    required>
 
-                <option value="IMAGE_PROCESSING">
-                    Image Processing
+                <option value="OBJECT_DETECTION">
+                    Object Detection + Image Analytics
                 </option>
 
-                <option value="MODEL_TRAINING">
-                    Model Training
-                </option>
-
-                <option value="MODEL_INFERENCE">
-                    Model Inference
-                </option>
-
-                <option value="VIDEO_PROCESSING">
-                    Video Processing
+                <option value="IMAGE_SIMILARITY">
+                    Image Similarity / Duplicate Detection
                 </option>
 
             </select>
 
 
-            <label for="image">
-                Upload Image
-            </label>
+            <!-- WORKLOAD DESCRIPTION -->
 
-            <input
-                type="file"
-                id="image"
-                name="image"
-                accept="image/*"
-            >
+            <div id="workloadInfo"
+                 class="workload-info">
 
+                Detect objects using YOLO, count objects,
+                estimate vehicle colors, blur license plates,
+                and generate image analytics.
+
+            </div>
+
+
+            <!-- OBJECT DETECTION -->
+
+            <div id="objectDetectionUpload"
+                 class="upload-section">
+
+                <label for="image">
+                    Upload Image
+                </label>
+
+                <input type="file"
+                       id="image"
+                       name="image"
+                       accept="image/*"
+                       required>
+
+                <p class="description">
+                    Upload exactly one image.
+                </p>
+
+            </div>
+
+
+            <!-- IMAGE SIMILARITY -->
+
+            <div id="similarityUpload"
+                 class="upload-section hidden">
+
+                <label for="image1">
+                    Upload Image 1
+                </label>
+
+                <input type="file"
+                       id="image1"
+                       name="image1"
+                       accept="image/*">
+
+                <label for="image2">
+                    Upload Image 2
+                </label>
+
+                <input type="file"
+                       id="image2"
+                       name="image2"
+                       accept="image/*">
+
+                <p class="description">
+                    Upload exactly two images to compare
+                    their similarity.
+                </p>
+
+            </div>
+
+
+            <!-- SUBMIT -->
 
             <button type="submit">
                 Submit GPU Job
@@ -168,6 +222,82 @@
         </form>
 
     </div>
+
+
+    <script>
+
+        const jobType = document.getElementById("job_type");
+
+        const objectDetectionUpload =
+            document.getElementById("objectDetectionUpload");
+
+        const similarityUpload =
+            document.getElementById("similarityUpload");
+
+        const workloadInfo =
+            document.getElementById("workloadInfo");
+
+        const image =
+            document.getElementById("image");
+
+        const image1 =
+            document.getElementById("image1");
+
+        const image2 =
+            document.getElementById("image2");
+
+
+        function updateWorkloadUI() {
+
+            if (jobType.value === "OBJECT_DETECTION") {
+
+                objectDetectionUpload.classList.remove("hidden");
+
+                similarityUpload.classList.add("hidden");
+
+                image.required = true;
+
+                image1.required = false;
+                image2.required = false;
+
+                workloadInfo.textContent =
+                    "Detect objects using YOLO, count objects, " +
+                    "estimate vehicle colors, blur license plates, " +
+                    "and generate image analytics.";
+
+            }
+
+
+            else if (jobType.value === "IMAGE_SIMILARITY") {
+
+                objectDetectionUpload.classList.add("hidden");
+
+                similarityUpload.classList.remove("hidden");
+
+                image.required = false;
+
+                image1.required = true;
+                image2.required = true;
+
+                workloadInfo.textContent =
+                    "Compare two images using perceptual hashing, " +
+                    "histogram comparison, SSIM, and CLIP " +
+                    "embeddings to detect duplicates or near-duplicates.";
+
+            }
+
+        }
+
+
+        jobType.addEventListener(
+            "change",
+            updateWorkloadUI
+        );
+
+
+        updateWorkloadUI();
+
+    </script>
 
 </body>
 

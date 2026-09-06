@@ -535,11 +535,11 @@ def create_job(
     request: Request,
     host_id: int = Form(...),
     job_type: str = Form(...),
-    image: UploadFile = File(None)
+    image: UploadFile = File(None),
+    image1: UploadFile = File(None),
+    image2: UploadFile = File(None)
 ):
-
     user_id = request.session.get("user_id")
-    role = request.session.get("role")
 
     if user_id is None:
         return RedirectResponse(
@@ -547,41 +547,46 @@ def create_job(
             status_code=303
         )
 
-    if role != "USER":
-        return {
-            "error": "Only GPU users can create jobs."
-        }
+    # ---------------------------------------
+    # Validate job type
+    # ---------------------------------------
 
-    allowed_types = {
-        "IMAGE_PROCESSING",
-        "MODEL_TRAINING",
-        "MODEL_INFERENCE",
-        "VIDEO_PROCESSING"
+    allowed_job_types = {
+        "OBJECT_DETECTION",
+        "IMAGE_SIMILARITY"
     }
 
-    if job_type not in allowed_types:
-        return {
-            "error": "Invalid job type."
-        }
-    image_path = None
-
-    if job_type == "IMAGE_PROCESSING":
-
-        if image is None:
-            return {
-                "error": "Please upload an image."
-            }
-
-        image_path = f"uploads/{image.filename}"
-
-        contents = image.file.read()
-
-        with open(image_path, "wb") as file:
-            file.write(contents)
+    if job_type not in allowed_job_types:
+        return {"error": "Invalid job type."}
 
     connection = get_connection()
 
-    approved_access = connection.execute(
+    # ---------------------------------------
+    # Check whether host exists
+    # ---------------------------------------
+
+    host = connection.execute(
+        """
+        SELECT *
+        FROM gpu_hosts
+        WHERE id = ?
+        AND status = 'ONLINE'
+        """,
+        (host_id,)
+    ).fetchone()
+
+    if host is None:
+        connection.close()
+
+        return {
+            "error": "Selected GPU host is not available."
+        }
+
+    # ---------------------------------------
+    # Check user's access
+    # ---------------------------------------
+
+    access_request = connection.execute(
         """
         SELECT *
         FROM access_requests
@@ -592,39 +597,156 @@ def create_job(
         (user_id, host_id)
     ).fetchone()
 
-    if approved_access is None:
+    if access_request is None:
         connection.close()
 
         return {
             "error": "You do not have approved access to this GPU host."
         }
 
-    connection.execute(
-        """
-        INSERT INTO jobs (
-            user_id,
-            host_id,
-            job_type,
-            status,
-            image_path
+    # ---------------------------------------
+    # OBJECT DETECTION
+    # Exactly ONE image
+    # ---------------------------------------
+
+    if job_type == "OBJECT_DETECTION":
+
+        if image is None or image.filename == "":
+            connection.close()
+
+            return {
+                "error": "Please upload exactly one image."
+            }
+
+        # Make sure extra images are not supplied
+        if ((image1 is not None and image1.filename != "")or(image2 is not None and image2.filename != "")):
+            connection.close()
+
+            return {
+                "error": "Object Detection requires exactly one image."
+            }
+
+        os.makedirs("uploads", exist_ok=True)
+
+        image_path = f"uploads/{image.filename}"
+
+        contents = image.file.read()
+
+        with open(image_path, "wb") as file:
+            file.write(contents)
+
+        # ---------------------------------------
+        # Create job
+        # ---------------------------------------
+
+        connection.execute(
+            """
+            INSERT INTO jobs (
+                user_id,
+                host_id,
+                job_type,
+                status,
+                image_path,
+                image_path_2
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                host_id,
+                job_type,
+                "QUEUED",
+                image_path,
+                None
+            )
         )
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (
-            user_id,
-            host_id,
-            job_type,
-            "QUEUED",
-            image_path
+
+    # ---------------------------------------
+    # IMAGE SIMILARITY
+    # Exactly TWO images
+    # ---------------------------------------
+
+    elif job_type == "IMAGE_SIMILARITY":
+
+        if image1 is None or image1.filename == "":
+            connection.close()
+
+            return {
+                "error": "Please upload Image 1."
+            }
+
+        if image2 is None or image2.filename == "":
+            connection.close()
+
+            return {
+                "error": "Please upload Image 2."
+            }
+
+        # Object detection image field should not be used
+        if image is not None and image.filename != "":
+            connection.close()
+
+            return {
+                "error": "Image Similarity requires exactly two images."
+            }
+
+        os.makedirs("uploads", exist_ok=True)
+
+        # ---------------------------------------
+        # Save Image 1
+        # ---------------------------------------
+
+        image_path_1 = f"uploads/{image1.filename}"
+
+        contents1 = image1.file.read()
+
+        with open(image_path_1, "wb") as file:
+            file.write(contents1)
+
+        # ---------------------------------------
+        # Save Image 2
+        # ---------------------------------------
+
+        image_path_2 = f"uploads/{image2.filename}"
+
+        contents2 = image2.file.read()
+
+        with open(image_path_2, "wb") as file:
+            file.write(contents2)
+
+        # ---------------------------------------
+        # Create job
+        # ---------------------------------------
+
+        connection.execute(
+            """
+            INSERT INTO jobs (
+                user_id,
+                host_id,
+                job_type,
+                status,
+                image_path,
+                image_path_2
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                host_id,
+                job_type,
+                "QUEUED",
+                image_path_1,
+                image_path_2
+            )
         )
-    )
 
     connection.commit()
     connection.close()
 
-    return {
-        "message": "GPU job submitted successfully."
-    }
+    return RedirectResponse(
+        url="/user-dashboard",
+        status_code=303
+    )
 
 @app.get("/register")
 def register_page(request: Request):

@@ -1,29 +1,47 @@
 import torch
 import requests
 import time
+
 from PIL import Image
 from io import BytesIO
-from PIL import Image
 
+
+# --------------------------------------------------
+# TURBOMESH SERVER
+# --------------------------------------------------
 
 SERVER_URL = "http://127.0.0.1:8000"
+
+# Temporary local testing user ID
 USER_ID = 2
 
 
+# --------------------------------------------------
+# GPU DETECTION
+# --------------------------------------------------
+
 def detect_gpu():
 
+    # NVIDIA GPU
     if torch.cuda.is_available():
 
         gpu_name = torch.cuda.get_device_name(0)
 
-        total_memory = torch.cuda.get_device_properties(0).total_memory
+        total_memory = torch.cuda.get_device_properties(
+            0
+        ).total_memory
 
-        vram = round(total_memory / (1024 ** 3), 2)
+        vram = round(
+            total_memory / (1024 ** 3),
+            2
+        )
 
         backend = "CUDA"
 
         return gpu_name, vram, backend
 
+
+    # Apple Silicon GPU
     if torch.backends.mps.is_available():
 
         gpu_name = "Apple Silicon GPU"
@@ -34,8 +52,14 @@ def detect_gpu():
 
         return gpu_name, vram, backend
 
+
+    # No supported GPU
     return None, None, None
 
+
+# --------------------------------------------------
+# GET NEXT JOB
+# --------------------------------------------------
 
 def get_next_job():
 
@@ -48,6 +72,11 @@ def get_next_job():
 
     return response.json()
 
+
+# --------------------------------------------------
+# DOWNLOAD JOB IMAGE
+# --------------------------------------------------
+
 def download_job_image(job_id):
 
     response = requests.get(
@@ -55,7 +84,10 @@ def download_job_image(job_id):
     )
 
     if response.status_code != 200:
-        raise Exception("Failed to download image")
+
+        raise Exception(
+            "Failed to download image"
+        )
 
     image = Image.open(
         BytesIO(response.content)
@@ -64,75 +96,35 @@ def download_job_image(job_id):
     return image
 
 
-def execute_image_processing(job_id):
+# --------------------------------------------------
+# OBJECT DETECTION
+# TEMPORARY TEST VERSION
+# --------------------------------------------------
 
-    print("Downloading image...")
+def execute_object_detection(job_id):
 
-    pil_image = download_job_image(job_id)
-
-    print("Image downloaded:", pil_image.size)
-
-    if torch.cuda.is_available():
-        device = torch.device("cuda")
-
-    elif torch.backends.mps.is_available():
-        device = torch.device("mps")
-
-    else:
-        device = torch.device("cpu")
-
-    print("Using device:", device)
-
-    import numpy as np
-
-    image = torch.from_numpy(
-        np.array(pil_image)
-    ).float() / 255.0
-
-    image = image.permute(
-        2, 0, 1
-    ).unsqueeze(0).to(device)
-
-    print("Image tensor moved to:", device)
-
-    processed = torch.nn.functional.avg_pool2d(
-        image,
-        kernel_size=5,
-        stride=1,
-        padding=2
+    print(
+        "Downloading image for object detection..."
     )
 
-    if device.type == "cuda":
-        torch.cuda.synchronize()
+    # Download image from TurboMesh server
+    pil_image = download_job_image(job_id)
 
-    elif device.type == "mps":
-        torch.mps.synchronize()
+    print(
+        "Image downloaded successfully!"
+    )
 
-    print("GPU processing finished!")
-
-    # Move processed tensor back to CPU
-    processed = processed.squeeze(0)
-    processed = processed.permute(1, 2, 0)
-    processed = processed.cpu()
-
-    # Convert values back to image format
-    processed = (processed * 255).clamp(0, 255)
-    processed = processed.byte().numpy()
-
-    output_image = Image.fromarray(processed)
-
-    output_path = f"outputs/job_{job_id}_processed.jpg"
-
-    output_image.save(output_path)
-
-    print("Processed image saved:", output_path)
+    print(
+        "Image size:",
+        pil_image.size
+    )
 
     return {
-        "device": str(device),
-        "resolution": f"{pil_image.width}x{pil_image.height}",
-        "operation": "Average Blur",
-        "output_path": output_path,
-        "status": "SUCCESS"
+        "status": "IMAGE_DOWNLOADED",
+        "resolution": (
+            f"{pil_image.width}x"
+            f"{pil_image.height}"
+        )
     }
 
 
@@ -145,18 +137,30 @@ gpu_name, vram, backend = detect_gpu()
 
 if gpu_name is None:
 
-    print("No supported GPU detected.")
+    print(
+        "No supported GPU detected."
+    )
 
 
 else:
 
     print("GPU detected!")
 
-    print("GPU:", gpu_name)
+    print(
+        "GPU:",
+        gpu_name
+    )
 
-    print("VRAM:", vram, "GB")
+    print(
+        "VRAM:",
+        vram,
+        "GB"
+    )
 
-    print("Backend:", backend)
+    print(
+        "Backend:",
+        backend
+    )
 
 
     # --------------------------------------------------
@@ -164,9 +168,13 @@ else:
     # --------------------------------------------------
 
     data = {
+
         "user_id": USER_ID,
+
         "gpu_name": gpu_name,
+
         "vram": str(vram),
+
         "backend": backend
     }
 
@@ -177,8 +185,8 @@ else:
     )
 
 
+    print()
     print("Server response:")
-
     print(response.json())
 
 
@@ -186,117 +194,130 @@ else:
     # WAIT FOR GPU JOBS
     # --------------------------------------------------
 
-    print("Host Agent is now waiting for jobs...")
+    print()
+    print(
+        "Host Agent is now waiting for jobs..."
+    )
 
 
     while True:
 
         try:
 
+            # Get next queued job
             data = get_next_job()
 
             job = data.get("job")
 
 
+            # --------------------------------------------------
+            # NO JOB
+            # --------------------------------------------------
+
             if job is None:
 
-                print("No jobs available.")
+                print(
+                    "No jobs available."
+                )
 
+
+            # --------------------------------------------------
+            # JOB RECEIVED
+            # --------------------------------------------------
 
             else:
 
                 print()
-                print("================================")
-                print("New GPU job received!")
-                print("Job ID:", job["id"])
-                print("Job Type:", job["job_type"])
-                print("Status:", job["status"])
-                print("================================")
-
-
-                # --------------------------------------------------
-                # EXECUTE IMAGE PROCESSING JOB
-                # --------------------------------------------------
-
-            if job["job_type"] == "IMAGE_PROCESSING":
-
-                try:
-
-                    result = execute_image_processing(
-                        job["id"]
-                    )
-
-                    print()
-                    print("Job Result:")
-                    print(result)
-                    print()
-
-                    output_path = result["output_path"]
-
-                    print("Uploading processed image...")
-
-                    with open(output_path, "rb") as file:
-
-                        upload_response = requests.post(
-                            f"{SERVER_URL}/host/jobs/{job['id']}/upload-result",
-                            files={
-                                "result_file": (
-                                    "processed.jpg",
-                                    file,
-                                    "image/jpeg"
-                                )
-                            }
-                        )
-
-                    print("Upload response:")
-                    print(upload_response.json())
-
-                    completion_data = {
-                        "status": "COMPLETED",
-                        "result": result
-                    }
-
-                    completion_response = requests.post(
-                        f"{SERVER_URL}/host/jobs/{job['id']}/complete",
-                        json=completion_data
-                    )
-
-                    print("Server completion response:")
-                    print(completion_response.json())
-
-                except Exception as error:
-
-                    print()
-                    print("GPU job failed!")
-                    print("Error:", error)
-                    print()
-
-                    failure_data = {
-                        "status": "FAILED",
-                        "result": {
-                            "error": str(error)
-                        }
-                    }
-
-                    failure_response = requests.post(
-                        f"{SERVER_URL}/host/jobs/{job['id']}/complete",
-                        json=failure_data
-                    )
-
-                    print("Failure response:")
-                    print(failure_response.json())
-
-            else:
 
                 print(
+                    "================================"
+                )
+
+                print(
+                    "New GPU job received!"
+                )
+
+                print(
+                    "Job ID:",
+                    job["id"]
+                )
+
+                print(
+                    "Job Type:",
+                    job["job_type"]
+                )
+
+                print(
+                    "Status:",
+                    job["status"]
+                )
+
+                print(
+                    "================================"
+                )
+
+
+                # --------------------------------------------------
+                # OBJECT DETECTION JOB
+                # --------------------------------------------------
+
+                if job["job_type"] == "OBJECT_DETECTION":
+
+                    try:
+
+                        result = execute_object_detection(
+                            job["id"]
+                        )
+
+
+                        print()
+
+                        print(
+                            "Job Result:"
+                        )
+
+                        print(
+                            result
+                        )
+
+                        print()
+
+
+                    except Exception as error:
+
+                        print()
+
+                        print(
+                            "GPU job failed!"
+                        )
+
+                        print(
+                            "Error:",
+                            error
+                        )
+
+                        print()
+
+
+                # --------------------------------------------------
+                # OTHER JOB TYPES
+                # --------------------------------------------------
+
+                else:
+
+                    print(
                         "Job type not implemented yet:",
                         job["job_type"]
-                )
+                    )
 
 
         except Exception as error:
 
-            print("Host Agent error:", error)
+            print(
+                "Host Agent error:",
+                error
+            )
 
 
+        # Wait before asking the server again
         time.sleep(2)

@@ -2,17 +2,25 @@
 <html lang="en">
 
 <head>
+
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
 
     <title>User Dashboard - TurboMesh</title>
 
+
     <style>
+
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
+
 
         body {
             font-family: Arial, sans-serif;
@@ -20,27 +28,22 @@
             color: #1f2937;
         }
 
+
         nav {
             background: #111827;
             color: white;
             padding: 18px 50px;
+
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
 
+
         nav h1 {
             font-size: 24px;
         }
 
-        pre {
-            background: #f3f4f6;
-            padding: 15px;
-            border-radius: 7px;
-            margin-top: 8px;
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
 
         .container {
             max-width: 1100px;
@@ -48,30 +51,39 @@
             padding: 20px;
         }
 
+
         .welcome {
             margin-bottom: 35px;
         }
+
 
         .welcome h2 {
             font-size: 32px;
             margin-bottom: 10px;
         }
 
+
         .welcome p {
             color: #6b7280;
         }
+
 
         .card {
             background: white;
             padding: 30px;
             border-radius: 12px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+
+            box-shadow:
+                0 4px 15px rgba(0, 0, 0, 0.08);
+
             margin-bottom: 25px;
         }
+
 
         .card h3 {
             margin-bottom: 20px;
         }
+
 
         .host {
             border: 1px solid #e5e7eb;
@@ -80,53 +92,118 @@
             margin-bottom: 15px;
         }
 
+
         .host h4 {
             margin-bottom: 10px;
         }
+
 
         .host p {
             color: #6b7280;
             margin-bottom: 8px;
         }
 
+
         .available {
             color: #16a34a;
             font-weight: bold;
         }
 
+
         button {
             margin-top: 15px;
             padding: 11px 20px;
+
             border: none;
             border-radius: 7px;
+
             background: #2563eb;
             color: white;
+
             font-size: 15px;
             cursor: pointer;
         }
+
 
         button:hover {
             background: #1d4ed8;
         }
 
+
         .empty {
             color: #6b7280;
         }
+
+
+        pre {
+            background: #f3f4f6;
+
+            padding: 15px;
+
+            border-radius: 7px;
+
+            margin-top: 8px;
+
+            white-space: pre-wrap;
+
+            word-break: break-word;
+        }
+
+
+        .status-completed {
+            color: #16a34a;
+            font-weight: bold;
+        }
+
+
+        .status-running {
+            color: #2563eb;
+            font-weight: bold;
+        }
+
+
+        .status-queued {
+            color: #ca8a04;
+            font-weight: bold;
+        }
+
+
+        .status-failed {
+            color: #dc2626;
+            font-weight: bold;
+        }
+
     </style>
+
 </head>
+
 
 <body>
 
+
     <nav>
-        <h1>TurboMesh</h1>
-        <span>GPU User Dashboard</span>
+
+        <h1>
+            TurboMesh
+        </h1>
+
+        <span>
+            GPU User Dashboard
+        </span>
+
     </nav>
+
 
     <div class="container">
 
+
+        <!-- Welcome Section -->
+
         <div class="welcome">
 
-            <h2>GPU User Dashboard</h2>
+            <h2>
+                GPU User Dashboard
+            </h2>
 
             <p>
                 Find available GPU hosts and request access
@@ -134,183 +211,334 @@
             </p>
 
         </div>
+
+
+        <!-- Create Job Button -->
+
         <a href="/create-job">
-            <button>
+
+            <button type="button">
                 Create GPU Job
             </button>
+
         </a>
 
 
+        <!-- Available GPU Hosts -->
+
         <div class="card">
 
-            <h3>Available GPU Hosts</h3>
+            <h3>
+                Available GPU Hosts
+            </h3>
+
+
             {% if hosts %}
 
-            {% for host in hosts %}
 
-            <div class="host">
+                {% for host in hosts %}
 
-                <h4>{{ host["name"] }}</h4>
 
-                <p>
-                    GPU: {{ host["gpu_name"] }}
-                </p>
+                    <div class="host">
 
-                <p>
-                    VRAM: {{ host["vram"] }}
-                </p>
+                        <h4>
+                            {{ host["name"] }}
+                        </h4>
 
-                <p>
-                    Status:
-                    <span class="available">
-                        {{ host["status"] }}
-                    </span>
-                </p>
 
-               <form method="post" action="/request-access">
-                    <input
-                        type="hidden"
-                        name="host_id"
-                        value="{{ host['id'] }}"
-                    >
+                        <p>
+                            GPU:
+                            {{ host["gpu_name"] }}
+                        </p>
 
-                    <button type="submit">
-                        Request GPU Access
-                    </button>
-                </form>
 
-            </div>
+                        <p>
+                            VRAM:
+                            {{ host["vram"] }}
+                        </p>
 
-            {% endfor %}
+
+                        <p>
+                            Status:
+
+                            <span class="available">
+                                {{ host["status"] }}
+                            </span>
+
+                        </p>
+
+
+                        <form
+                            method="post"
+                            action="/request-access"
+                        >
+
+                            <input
+                                type="hidden"
+                                name="host_id"
+                                value="{{ host['id'] }}"
+                            >
+
+
+                            <button type="submit">
+                                Request GPU Access
+                            </button>
+
+                        </form>
+
+                    </div>
+
+
+                {% endfor %}
+
 
             {% else %}
 
-            <p class="empty">
-                No GPU hosts are currently online.
-            </p>
+
+                <p class="empty">
+                    No GPU hosts are currently online.
+                </p>
+
 
             {% endif %}
 
         </div>
 
 
+        <!-- My Access Requests -->
+
         <div class="card">
 
-    <h3>My Access Requests</h3>
+            <h3>
+                My Access Requests
+            </h3>
 
-    {% if access_requests %}
 
-        {% for access_request in access_requests %}
+            {% if access_requests %}
 
-            <div class="host">
 
-                <h4>
-                    {{ access_request["host_name"] }}
-                </h4>
+                {% for access_request in access_requests %}
 
-                <p>
-                    GPU: {{ access_request["gpu_name"] }}
+
+                    <div class="host">
+
+                        <h4>
+                            {{ access_request["host_name"] }}
+                        </h4>
+
+
+                        <p>
+                            GPU:
+                            {{ access_request["gpu_name"] }}
+                        </p>
+
+
+                        <p>
+                            Status:
+
+                            <strong>
+                                {{ access_request["status"] }}
+                            </strong>
+
+                        </p>
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <p class="empty">
+                    You haven't submitted any GPU access
+                    requests yet.
                 </p>
 
-                <p>
-                    Status:
-                    <strong>
-                        {{ access_request["status"] }}
-                    </strong>
+
+            {% endif %}
+
+        </div>
+
+
+        <!-- My GPU Jobs -->
+
+        <div class="card">
+
+            <h3>
+                My GPU Jobs
+            </h3>
+
+
+            {% if jobs %}
+
+
+                {% for job in jobs %}
+
+
+                    <div class="host">
+
+
+                        <h4>
+                            Job #{{ job["id"] }}
+                        </h4>
+
+
+                        <p>
+                            Host:
+                            {{ job["host_name"] }}
+                        </p>
+
+
+                        <p>
+                            GPU:
+                            {{ job["gpu_name"] }}
+                        </p>
+
+
+                        <p>
+                            Job Type:
+                            {{ job["job_type"] }}
+                        </p>
+
+
+                        <p>
+
+                            Status:
+
+
+                            {% if job["status"] == "COMPLETED" %}
+
+                                <strong class="status-completed">
+                                    COMPLETED
+                                </strong>
+
+
+                            {% elif job["status"] == "RUNNING" %}
+
+                                <strong class="status-running">
+                                    RUNNING
+                                </strong>
+
+
+                            {% elif job["status"] == "QUEUED" %}
+
+                                <strong class="status-queued">
+                                    QUEUED
+                                </strong>
+
+
+                            {% elif job["status"] == "FAILED" %}
+
+                                <strong class="status-failed">
+                                    FAILED
+                                </strong>
+
+
+                            {% else %}
+
+                                <strong>
+                                    {{ job["status"] }}
+                                </strong>
+
+                            {% endif %}
+
+                        </p>
+
+
+                        <!-- COMPLETED JOB -->
+
+                        {% if job["status"] == "COMPLETED"
+                              and job["output_path"] %}
+
+
+                            <p>
+                                Result:
+                            </p>
+
+
+                            <pre>{{ job["result"] }}</pre>
+
+
+                            <a
+                                href="/jobs/{{ job['id'] }}/result"
+                                target="_blank"
+                            >
+
+                                <button type="button">
+                                    View Processed Image
+                                </button>
+
+                            </a>
+
+
+                        <!-- RUNNING JOB -->
+
+                        {% elif job["status"] == "RUNNING" %}
+
+
+                            <p>
+                                GPU is currently processing
+                                your job...
+                            </p>
+
+
+                        <!-- QUEUED JOB -->
+
+                        {% elif job["status"] == "QUEUED" %}
+
+
+                            <p>
+                                Your job is waiting
+                                for the GPU...
+                            </p>
+
+
+                        <!-- FAILED JOB -->
+
+                        {% elif job["status"] == "FAILED" %}
+
+
+                            <p class="status-failed">
+                                GPU processing failed.
+                            </p>
+
+
+                            {% if job["result"] %}
+
+                                <pre>
+{{ job["result"] }}
+                                </pre>
+
+                            {% endif %}
+
+
+                        {% endif %}
+
+
+                    </div>
+
+
+                {% endfor %}
+
+
+            {% else %}
+
+
+                <p class="empty">
+                    You haven't submitted any GPU jobs yet.
                 </p>
 
-            </div>
 
-        {% endfor %}
+            {% endif %}
 
-    {% else %}
 
-        <p class="empty">
-            You haven't submitted any GPU access requests yet.
-        </p>
+        </div>
 
-    {% endif %}
-
-</div>
-    <div class="card">
-
-        <h3>My GPU Jobs</h3>
-
-        {% if jobs %}
-
-            {% for job in jobs %}
-
-                <div class="host">
-
-                    <h4>
-                        Job #{{ job["id"] }}
-                    </h4>
-
-                    <p>
-                        Host: {{ job["host_name"] }}
-                    </p>
-
-                    <p>
-                        GPU: {{ job["gpu_name"] }}
-                    </p>
-
-                    <p>
-                        Job Type: {{ job["job_type"] }}
-                    </p>
-
-                    <p>
-                        Status:
-                        <strong>
-                            {{ job["status"] }}
-                        </strong>
-                    </p>
-
-                    {% if job["status"] == "COMPLETED" and job["output_path"] %}
-
-                    <p>
-                        Result:
-                    </p>
-
-                    <pre>{{ job["result"] }}</pre>
-
-                    <a
-                        href="/jobs/{{ job['id'] }}/result"
-                        target="_blank"
-                    >
-                        <button type="button">
-                            View Processed Image
-                        </button>
-                    </a>
-
-                {% elif job["status"] == "RUNNING" %}
-
-                    <p>
-                        GPU is currently processing your job...
-                    </p>
-
-                {% elif job["status"] == "QUEUED" %}
-
-                    <p>
-                        Your job is waiting for the GPU...
-                    </p>
-
-                {% endif %}
-
-                </div>
-
-            {% endfor %}
-
-        {% else %}
-
-            <p class="empty">
-                You haven't submitted any GPU jobs yet.
-            </p>
-
-        {% endif %}
 
     </div>
 
-</div>
 
 </body>
 
