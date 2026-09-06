@@ -1,6 +1,8 @@
 import torch
 import requests
 import time
+from PIL import Image
+from io import BytesIO
 
 
 SERVER_URL = "http://127.0.0.1:8000"
@@ -44,6 +46,21 @@ def get_next_job():
     )
 
     return response.json()
+
+def download_job_image(job_id):
+
+    response = requests.get(
+        f"{SERVER_URL}/host/jobs/{job_id}/image"
+    )
+
+    if response.status_code != 200:
+        raise Exception("Failed to download image")
+
+    image = Image.open(
+        BytesIO(response.content)
+    ).convert("RGB")
+
+    return image
 
 
 def execute_image_processing():

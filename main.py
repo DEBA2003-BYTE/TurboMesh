@@ -3,6 +3,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
+from fastapi.responses import FileResponse
+import os
 
 from database import create_tables, get_connection
 
@@ -728,6 +730,34 @@ def get_next_job(user_id: int):
         "image_path": job["image_path"]
     }
 }
+@app.get("/host/jobs/{job_id}/image")
+def download_job_image(job_id: int):
+
+    connection = get_connection()
+
+    job = connection.execute(
+        """
+        SELECT image_path
+        FROM jobs
+        WHERE id = ?
+        """,
+        (job_id,)
+    ).fetchone()
+
+    connection.close()
+
+    if job is None:
+        return {"error": "Job not found."}
+
+    if job["image_path"] is None:
+        return {"error": "This job has no image."}
+
+    if not os.path.exists(job["image_path"]):
+        return {"error": "Image file not found."}
+
+    return FileResponse(job["image_path"])
+
+
 
 class JobResult(BaseModel):
     status: str
