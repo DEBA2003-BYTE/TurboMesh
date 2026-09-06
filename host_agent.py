@@ -3,6 +3,7 @@ import requests
 import time
 from PIL import Image
 from io import BytesIO
+from PIL import Image
 
 
 SERVER_URL = "http://127.0.0.1:8000"
@@ -63,62 +64,74 @@ def download_job_image(job_id):
     return image
 
 
-def execute_image_processing():
+def execute_image_processing(job_id):
 
-    print("Starting image processing...")
+    print("Downloading image...")
 
-    # Select the best available device
+    pil_image = download_job_image(job_id)
+
+    print("Image downloaded:", pil_image.size)
+
     if torch.cuda.is_available():
-
         device = torch.device("cuda")
 
     elif torch.backends.mps.is_available():
-
         device = torch.device("mps")
 
     else:
-
         device = torch.device("cpu")
 
     print("Using device:", device)
 
-    # Create an image-like tensor directly on the selected device
-    image = torch.rand(
-        (1, 3, 2048, 2048),
-        device=device
-    )
+    import numpy as np
 
-    print("Image tensor created on:", image.device)
+    image = torch.from_numpy(
+        np.array(pil_image)
+    ).float() / 255.0
 
-    # Perform actual image processing
-    processed_image = torch.nn.functional.avg_pool2d(
+    image = image.permute(
+        2, 0, 1
+    ).unsqueeze(0).to(device)
+
+    print("Image tensor moved to:", device)
+
+    processed = torch.nn.functional.avg_pool2d(
         image,
-        kernel_size=3,
+        kernel_size=5,
         stride=1,
-        padding=1
+        padding=2
     )
 
-    # Wait for GPU operations to finish
-    if device.type == "mps":
-
-        torch.mps.synchronize()
-
-    elif device.type == "cuda":
-
+    if device.type == "cuda":
         torch.cuda.synchronize()
 
-    print("Image processing completed.")
+    elif device.type == "mps":
+        torch.mps.synchronize()
 
-    print(
-        "Processed tensor shape:",
-        processed_image.shape
-    )
+    print("GPU processing finished!")
+
+    # Move processed tensor back to CPU
+    processed = processed.squeeze(0)
+    processed = processed.permute(1, 2, 0)
+    processed = processed.cpu()
+
+    # Convert values back to image format
+    processed = (processed * 255).clamp(0, 255)
+    processed = processed.byte().numpy()
+
+    output_image = Image.fromarray(processed)
+
+    output_path = f"outputs/job_{job_id}_processed.jpg"
+
+    output_image.save(output_path)
+
+    print("Processed image saved:", output_path)
 
     return {
         "device": str(device),
-        "input_size": str(tuple(image.shape)),
-        "output_size": str(tuple(processed_image.shape)),
-        "operation": "Average Pooling",
+        "resolution": f"{pil_image.width}x{pil_image.height}",
+        "operation": "Average Blur",
+        "output_path": output_path,
         "status": "SUCCESS"
     }
 
@@ -205,13 +218,38 @@ else:
                 # EXECUTE IMAGE PROCESSING JOB
                 # --------------------------------------------------
 
-                if job["job_type"] == "IMAGE_PROCESSING":
-                    result = execute_image_processing()
+            if job["job_type"] == "IMAGE_PROCESSING":
+
+                try:
+
+                    result = execute_image_processing(
+                        job["id"]
+                    )
 
                     print()
                     print("Job Result:")
                     print(result)
                     print()
+
+                    output_path = result["output_path"]
+
+                    print("Uploading processed image...")
+
+                    with open(output_path, "rb") as file:
+
+                        upload_response = requests.post(
+                            f"{SERVER_URL}/host/jobs/{job['id']}/upload-result",
+                            files={
+                                "result_file": (
+                                    "processed.jpg",
+                                    file,
+                                    "image/jpeg"
+                                )
+                            }
+                        )
+
+                    print("Upload response:")
+                    print(upload_response.json())
 
                     completion_data = {
                         "status": "COMPLETED",
@@ -226,13 +264,34 @@ else:
                     print("Server completion response:")
                     print(completion_response.json())
 
+                except Exception as error:
 
-                else:
+                    print()
+                    print("GPU job failed!")
+                    print("Error:", error)
+                    print()
 
-                    print(
+                    failure_data = {
+                        "status": "FAILED",
+                        "result": {
+                            "error": str(error)
+                        }
+                    }
+
+                    failure_response = requests.post(
+                        f"{SERVER_URL}/host/jobs/{job['id']}/complete",
+                        json=failure_data
+                    )
+
+                    print("Failure response:")
+                    print(failure_response.json())
+
+            else:
+
+                print(
                         "Job type not implemented yet:",
                         job["job_type"]
-                    )
+                )
 
 
         except Exception as error:

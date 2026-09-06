@@ -265,15 +265,36 @@
                         </strong>
                     </p>
 
-                    {% if job["result"] %}
+                    {% if job["status"] == "COMPLETED" and job["output_path"] %}
 
-                        <p>
-                            Result:
-                        </p>
+                    <p>
+                        Result:
+                    </p>
 
-                        <pre>{{ job["result"] }}</pre>
+                    <pre>{{ job["result"] }}</pre>
 
-                    {% endif %}
+                    <a
+                        href="/jobs/{{ job['id'] }}/result"
+                        target="_blank"
+                    >
+                        <button type="button">
+                            View Processed Image
+                        </button>
+                    </a>
+
+                {% elif job["status"] == "RUNNING" %}
+
+                    <p>
+                        GPU is currently processing your job...
+                    </p>
+
+                {% elif job["status"] == "QUEUED" %}
+
+                    <p>
+                        Your job is waiting for the GPU...
+                    </p>
+
+                {% endif %}
 
                 </div>
 

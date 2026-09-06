@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Request, Form, UploadFile, File
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, FileResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel
 from fastapi.responses import FileResponse
@@ -307,6 +307,7 @@ def user_dashboard(request: Request):
             jobs.job_type,
             jobs.status,
             jobs.result,
+            jobs.output_path,
             users.name AS host_name,
             gpu_hosts.gpu_name
         FROM jobs
@@ -765,7 +766,10 @@ class JobResult(BaseModel):
 
 
 @app.post("/host/jobs/{job_id}/complete")
-def complete_job(job_id: int, job_result: JobResult):
+def complete_job(
+    job_id: int,
+    job_result: JobResult
+):
 
     connection = get_connection()
 
@@ -779,10 +783,30 @@ def complete_job(job_id: int, job_result: JobResult):
     ).fetchone()
 
     if job is None:
+
         connection.close()
 
         return {
             "error": "Job not found."
+        }
+
+    if job["status"] != "RUNNING":
+
+        connection.close()
+
+        return {
+            "error": "Job is not currently running."
+        }
+
+    if job_result.status not in {
+        "COMPLETED",
+        "FAILED"
+    }:
+
+        connection.close()
+
+        return {
+            "error": "Invalid job status."
         }
 
     connection.execute(
@@ -802,5 +826,108 @@ def complete_job(job_id: int, job_result: JobResult):
     connection.close()
 
     return {
-        "message": "Job completed successfully."
+        "message": f"Job marked as {job_result.status}."
     }
+
+@app.post("/host/jobs/{job_id}/upload-result")
+def upload_job_result(
+    job_id: int,
+    result_file: UploadFile = File(...)
+):
+
+    connection = get_connection()
+
+    job = connection.execute(
+        """
+        SELECT *
+        FROM jobs
+        WHERE id = ?
+        """,
+        (job_id,)
+    ).fetchone()
+
+    if job is None:
+        connection.close()
+
+        return {
+            "error": "Job not found."
+        }
+
+    os.makedirs("outputs", exist_ok=True)
+
+    output_path = f"outputs/job_{job_id}_result.jpg"
+
+    contents = result_file.file.read()
+
+    with open(output_path, "wb") as file:
+        file.write(contents)
+
+    connection.execute(
+        """
+        UPDATE jobs
+        SET output_path = ?
+        WHERE id = ?
+        """,
+        (
+            output_path,
+            job_id
+        )
+    )
+
+    connection.commit()
+    connection.close()
+
+    return {
+        "message": "Result uploaded successfully.",
+        "output_path": output_path
+    }
+
+@app.get("/jobs/{job_id}/result")
+def get_job_result(request: Request, job_id: int):
+
+    user_id = request.session.get("user_id")
+
+    if user_id is None:
+        return RedirectResponse(
+            url="/login",
+            status_code=303
+        )
+
+    connection = get_connection()
+
+    job = connection.execute(
+        """
+        SELECT *
+        FROM jobs
+        WHERE id = ?
+        AND user_id = ?
+        """,
+        (job_id, user_id)
+    ).fetchone()
+
+    connection.close()
+
+    if job is None:
+        return {
+            "error": "Job not found."
+        }
+
+    if job["status"] != "COMPLETED":
+        return {
+            "error": "Job has not completed yet."
+        }
+
+    if job["output_path"] is None:
+        return {
+            "error": "No result available."
+        }
+
+    if not os.path.exists(job["output_path"]):
+        return {
+            "error": "Result file not found."
+        }
+
+    return FileResponse(
+        job["output_path"],
+        media_type="image/jpeg"
+    )
