@@ -2,7 +2,8 @@ import torch
 import requests
 import time
 import os
-
+import cv2
+import numpy as np
 from ultralytics import YOLO
 from PIL import Image
 from io import BytesIO
@@ -19,12 +20,25 @@ USER_ID = 2
 
 
 # ==================================================
+# VEHICLE CLASSES
+# ==================================================
+
+VEHICLE_CLASSES = {
+    "car",
+    "motorcycle",
+    "bus",
+    "truck"
+}
+
+
+# ==================================================
 # LOAD YOLO MODEL
 # ==================================================
 
 print("Loading YOLO model...")
 
 yolo_model = YOLO("yolo11n.pt")
+license_plate_model = YOLO("models/license_plate.pt")
 
 print("YOLO model loaded successfully!")
 
@@ -129,56 +143,97 @@ def download_job_image(job_id):
 
 
 # ==================================================
-# OBJECT DETECTION
+# VEHICLE COLOR ESTIMATION
+# ==================================================
+
+def estimate_vehicle_color(cropped_image):
+
+    """
+    Estimate the dominant color of a vehicle crop.
+    """
+
+    # ----------------------------------------------
+    # Convert PIL RGB image to OpenCV BGR
+    # ----------------------------------------------
+
+    image = cv2.cvtColor(
+            __import__("numpy").array(cropped_image),
+            cv2.COLOR_RGB2BGR
+        )
+
+
+    # ----------------------------------------------
+    # Calculate average RGB/BGR values
+    # ----------------------------------------------
+
+    average_color = (
+        image
+        .mean(axis=0)
+        .mean(axis=0)
+    )
+
+
+    blue = average_color[0]
+    green = average_color[1]
+    red = average_color[2]
+
+
+    # ----------------------------------------------
+    # Calculate brightness
+    # ----------------------------------------------
+
+    brightness = (
+        red +
+        green +
+        blue
+    ) / 3
+
+    if brightness < 60:
+        return "Black"
+
+    if brightness > 190 and max(red, green, blue) - min(red, green, blue) < 40:
+        return "White"
+
+    if max(red, green, blue) - min(red, green, blue) < 35:
+        return "Gray/Silver"
+
+    if red > green * 1.3 and red > blue * 1.3:
+        return "Red"
+
+    if blue > red * 1.2 and blue > green * 1.1:
+        return "Blue"
+
+    if green > red * 1.2 and green > blue * 1.1:
+        return "Green"
+
+    return "Other"
+
+# ==================================================
+# OBJECT DETECTION + VEHICLE ANALYTICS
 # ==================================================
 
 def execute_object_detection(job_id):
 
-    print()
     print("Downloading image for object detection...")
-
-    # ----------------------------------------------
-    # Download image
-    # ----------------------------------------------
 
     pil_image = download_job_image(job_id)
 
-    print(
-        "Image downloaded successfully!"
-    )
+    print("Image downloaded successfully!")
+    print("Image size:", pil_image.size)
 
-    print(
-        "Image size:",
-        pil_image.size
-    )
+    # -----------------------------------------
+    # Select GPU
+    # -----------------------------------------
 
+    gpu_name, vram, backend = detect_gpu()
 
-    # ----------------------------------------------
-    # Select computation device
-    # ----------------------------------------------
+    device = backend.lower()
 
-    if torch.cuda.is_available():
+    print("Running YOLO on:", device)
 
-        device = "cuda"
-
-    elif torch.backends.mps.is_available():
-
-        device = "mps"
-
-    else:
-
-        device = "cpu"
-
-
-    print(
-        "Running YOLO on:",
-        device
-    )
-
-
-    # ----------------------------------------------
-    # Run YOLO
-    # ----------------------------------------------
+    # -----------------------------------------
+    # Object Detection
+    # -----------------------------------------
 
     results = yolo_model.predict(
         source=pil_image,
@@ -186,141 +241,349 @@ def execute_object_detection(job_id):
         verbose=False
     )
 
+    result = results[0]
 
-    # ----------------------------------------------
-    # Collect detections
-    # ----------------------------------------------
+    # -----------------------------------------
+    # Convert image to OpenCV format
+    # -----------------------------------------
+
+    image = np.array(pil_image)
+
+    image = cv2.cvtColor(
+        image,
+        cv2.COLOR_RGB2BGR
+    )
+
+    # -----------------------------------------
+    # Detection statistics
+    # -----------------------------------------
 
     detections = []
 
     object_counts = {}
 
+    vehicle_counts = {}
 
-    for result in results:
+    vehicle_confidences = []
 
-        for box in result.boxes:
+    vehicle_colors = []
 
-            # Class ID
-            class_id = int(
-                box.cls[0]
-            )
+    total_vehicles = 0
 
-            # Confidence
-            confidence = float(
-                box.conf[0]
-            )
+    # -----------------------------------------
+    # Process YOLO detections
+    # -----------------------------------------
 
-            # Object name
-            class_name = result.names[
-                class_id
-            ]
+    for box in result.boxes:
 
+        class_id = int(box.cls[0])
 
-            # --------------------------------------
-            # Store detection
-            # --------------------------------------
+        confidence = float(box.conf[0])
 
-            detections.append({
+        class_name = result.names[class_id]
 
-                "object": class_name,
-
-                "confidence": round(
-                    confidence,
-                    3
-                )
-
-            })
-
-
-            # --------------------------------------
-            # Count objects
-            # --------------------------------------
-
-            if class_name not in object_counts:
-
-                object_counts[class_name] = 0
-
-            object_counts[class_name] += 1
-
-
-    # ==================================================
-    # GENERATE ANNOTATED IMAGE
-    # ==================================================
-
-    annotated_image = results[0].plot()
-
-
-    # ==================================================
-    # SAVE ANNOTATED IMAGE
-    # ==================================================
-
-    output_path = (
-        f"outputs/"
-        f"job_{job_id}_detected.jpg"
-    )
-
-
-    Image.fromarray(
-        annotated_image
-    ).save(
-        output_path
-    )
-
-
-    print()
-    print(
-        "Annotated image saved:"
-    )
-
-    print(
-        output_path
-    )
-
-
-    # ==================================================
-    # PRINT DETECTION ANALYTICS
-    # ==================================================
-
-    print()
-    print(
-        "Detected objects:"
-    )
-
-    for object_name, count in object_counts.items():
-
-        print(
-            f"{object_name}: {count}"
+        x1, y1, x2, y2 = map(
+            int,
+            box.xyxy[0].tolist()
         )
 
+        detections.append({
+            "object": class_name,
+            "confidence": round(confidence, 3)
+        })
 
-    # ==================================================
-    # RETURN RESULT
-    # ==================================================
+        # Count all detected objects
+
+        object_counts[class_name] = (
+            object_counts.get(class_name, 0) + 1
+        )
+
+        # -------------------------------------
+        # Vehicle analytics
+        # -------------------------------------
+
+        if class_name in VEHICLE_CLASSES:
+
+            total_vehicles += 1
+
+            vehicle_counts[class_name] = (
+                vehicle_counts.get(class_name, 0) + 1
+            )
+
+            vehicle_confidences.append(confidence)
+
+            # Make sure coordinates stay inside image
+
+            x1 = max(0, x1)
+            y1 = max(0, y1)
+
+            x2 = min(image.shape[1], x2)
+            y2 = min(image.shape[0], y2)
+
+            if x2 > x1 and y2 > y1:
+
+                vehicle_crop = image[
+                    y1:y2,
+                    x1:x2
+                ]
+
+                # Convert OpenCV crop back to PIL
+
+                vehicle_crop_rgb = cv2.cvtColor(
+                    vehicle_crop,
+                    cv2.COLOR_BGR2RGB
+                )
+
+                vehicle_crop_pil = Image.fromarray(
+                    vehicle_crop_rgb
+                )
+
+                color = estimate_vehicle_color(
+                    vehicle_crop_pil
+                )
+
+                vehicle_colors.append({
+                    "vehicle": class_name,
+                    "color": color,
+                    "confidence": round(confidence, 3)
+                })
+
+    # -----------------------------------------
+    # License Plate Detection
+    # -----------------------------------------
+
+    print("Detecting license plates...")
+
+    plate_results = license_plate_model.predict(
+        source=pil_image,
+        device=device,
+        conf=0.25,
+        verbose=False
+    )
+
+    plate_result = plate_results[0]
+
+    license_plates = []
+
+    # -----------------------------------------
+    # Blur detected license plates
+    # -----------------------------------------
+
+    if plate_result.boxes is not None:
+
+        for box in plate_result.boxes:
+
+            confidence = float(box.conf[0])
+
+            x1, y1, x2, y2 = map(
+                int,
+                box.xyxy[0].tolist()
+            )
+
+            # Keep coordinates inside image
+
+            x1 = max(0, x1)
+            y1 = max(0, y1)
+
+            x2 = min(image.shape[1], x2)
+            y2 = min(image.shape[0], y2)
+
+            if x2 <= x1 or y2 <= y1:
+                continue
+
+            # ---------------------------------
+            # Extract plate
+            # ---------------------------------
+
+            plate = image[
+                y1:y2,
+                x1:x2
+            ]
+
+            if plate.size == 0:
+                continue
+
+            # ---------------------------------
+            # Apply Gaussian blur
+            # ---------------------------------
+
+            width = x2 - x1
+            height = y2 - y1
+
+            # Kernel must be odd
+
+            kernel_width = max(
+                15,
+                (width // 2) * 2 + 1
+            )
+
+            kernel_height = max(
+                15,
+                (height // 2) * 2 + 1
+            )
+
+            blurred_plate = cv2.GaussianBlur(
+                plate,
+                (
+                    kernel_width,
+                    kernel_height
+                ),
+                0
+            )
+
+            image[
+                y1:y2,
+                x1:x2
+            ] = blurred_plate
+
+            # ---------------------------------
+            # Draw license plate rectangle
+            # ---------------------------------
+
+            cv2.rectangle(
+                image,
+                (x1, y1),
+                (x2, y2),
+                (0, 255, 255),
+                2
+            )
+
+            cv2.putText(
+                image,
+                f"License Plate {confidence:.2f}",
+                (x1, max(20, y1 - 8)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (0, 255, 255),
+                2
+            )
+
+            license_plates.append({
+                "confidence": round(confidence, 3),
+                "box": [
+                    x1,
+                    y1,
+                    x2,
+                    y2
+                ],
+                "blurred": True
+            })
+
+    # -----------------------------------------
+    # Draw object detections
+    # -----------------------------------------
+
+    for box in result.boxes:
+
+        class_id = int(box.cls[0])
+
+        confidence = float(box.conf[0])
+
+        class_name = result.names[class_id]
+
+        x1, y1, x2, y2 = map(
+            int,
+            box.xyxy[0].tolist()
+        )
+
+        cv2.rectangle(
+            image,
+            (x1, y1),
+            (x2, y2),
+            (255, 0, 0),
+            2
+        )
+
+        cv2.putText(
+            image,
+            f"{class_name} {confidence:.2f}",
+            (x1, max(20, y1 - 8)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (255, 0, 0),
+            2
+        )
+
+    # -----------------------------------------
+    # Calculate average confidence
+    # -----------------------------------------
+
+    if vehicle_confidences:
+
+        average_vehicle_confidence = (
+            sum(vehicle_confidences)
+            / len(vehicle_confidences)
+        )
+
+    else:
+
+        average_vehicle_confidence = 0
+
+    # -----------------------------------------
+    # Save processed image
+    # -----------------------------------------
+
+    os.makedirs("outputs", exist_ok=True)
+
+    output_path = f"outputs/job_{job_id}_detected.jpg"
+
+    cv2.imwrite(
+        output_path,
+        image
+    )
+
+    print()
+    print("================================")
+    print("OBJECT DETECTION COMPLETED")
+    print("================================")
+    print("Device:", device)
+    print("Total vehicles:", total_vehicles)
+    print("Vehicle counts:", vehicle_counts)
+    print("License plates:", len(license_plates))
+    print("Output:", output_path)
+    print("================================")
+
+    # -----------------------------------------
+    # Return structured result
+    # -----------------------------------------
 
     return {
+        "status": "YOLO_DETECTION_COMPLETED",
 
-        "status":
-            "YOLO_DETECTION_COMPLETED",
+        "device": device,
+        "gpu_name": gpu_name,
+        "vram": vram,
+        "backend": backend,
 
-        "device":
-            device,
+        "resolution": (
+            f"{pil_image.width}x{pil_image.height}"
+        ),
 
-        "resolution":
-            (
-                f"{pil_image.width}x"
-                f"{pil_image.height}"
-            ),
+        "total_objects": len(detections),
 
-        "detections":
-            detections,
+        "object_counts": object_counts,
 
-        "object_counts":
-            object_counts,
+        "total_vehicles": total_vehicles,
 
-        "output_path":
-            output_path
+        "vehicle_counts": vehicle_counts,
+
+        "vehicle_colors": vehicle_colors,
+
+        "average_vehicle_confidence": round(
+            average_vehicle_confidence,
+            3
+        ),
+
+        "license_plate_count": len(
+            license_plates
+        ),
+
+        "license_plates": license_plates,
+
+        "detections": detections,
+
+        "output_path": output_path
     }
-
 
 # ==================================================
 # DETECT GPU
@@ -340,11 +603,12 @@ if gpu_name is None:
         "No supported GPU detected."
     )
 
+
 else:
 
-    # ----------------------------------------------
+    # ==================================================
     # GPU INFORMATION
-    # ----------------------------------------------
+    # ==================================================
 
     print()
     print(
@@ -376,7 +640,7 @@ else:
 
 
     # ==================================================
-    # REGISTER GPU WITH TURBOMESH SERVER
+    # REGISTER GPU
     # ==================================================
 
     data = {
@@ -396,9 +660,13 @@ else:
 
 
     response = requests.post(
-        f"{SERVER_URL}/host/register",
+
+        f"{SERVER_URL}"
+        f"/host/register",
+
         json=data
     )
+
 
     response.raise_for_status()
 
@@ -456,6 +724,7 @@ else:
             else:
 
                 print()
+
                 print(
                     "================================"
                 )
@@ -488,16 +757,22 @@ else:
                 # OBJECT DETECTION
                 # ==================================================
 
-                if job["job_type"] == "OBJECT_DETECTION":
+                if (
+                    job["job_type"]
+                    ==
+                    "OBJECT_DETECTION"
+                ):
 
                     try:
 
                         # ------------------------------------------
-                        # Execute YOLO
+                        # Run object detection
                         # ------------------------------------------
 
-                        result = execute_object_detection(
-                            job["id"]
+                        result = (
+                            execute_object_detection(
+                                job["id"]
+                            )
                         )
 
 
@@ -514,12 +789,14 @@ else:
 
 
                         # ==================================================
-                        # UPLOAD RESULT IMAGE
+                        # UPLOAD RESULT
                         # ==================================================
 
-                        output_path = result[
-                            "output_path"
-                        ]
+                        output_path = (
+                            result[
+                                "output_path"
+                            ]
+                        )
 
 
                         print(
@@ -531,6 +808,7 @@ else:
                             output_path,
                             "rb"
                         ) as file:
+
 
                             upload_response = requests.post(
 
@@ -692,7 +970,7 @@ else:
 
 
         # ==================================================
-        # WAIT BEFORE POLLING AGAIN
+        # WAIT
         # ==================================================
 
         time.sleep(2)
