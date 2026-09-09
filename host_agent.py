@@ -141,6 +141,41 @@ def download_job_image(job_id):
 
     return image
 
+def download_job_image_2(job_id):
+
+    print("Downloading second image...")
+
+    response = requests.get(
+        f"{SERVER_URL}/host/jobs/{job_id}/image/2"
+    )
+
+    response.raise_for_status()
+
+    image = Image.open(
+        BytesIO(response.content)
+    ).convert("RGB")
+
+    print("Second image downloaded successfully!")
+    print("Second image size:", image.size)
+
+    return image
+
+def test_image_similarity_download(job_id):
+
+    print()
+    print("================================")
+    print("TESTING IMAGE SIMILARITY")
+    print("================================")
+
+    image1 = download_job_image(job_id)
+
+    image2 = download_job_image_2(job_id)
+
+    print()
+    print("Image 1 size:", image1.size)
+    print("Image 2 size:", image2.size)
+
+    print("Both images downloaded successfully!")
 
 # ==================================================
 # VEHICLE COLOR ESTIMATION

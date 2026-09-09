@@ -850,7 +850,8 @@ def get_next_job(user_id: int):
         "host_id": job["host_id"],
         "job_type": job["job_type"],
         "status": "RUNNING",
-        "image_path": job["image_path"]
+        "image_path": job["image_path"],
+        "image_path_2": job["image_path_2"]
     }
 }
 @app.get("/host/jobs/{job_id}/image")
@@ -879,6 +880,33 @@ def download_job_image(job_id: int):
         return {"error": "Image file not found."}
 
     return FileResponse(job["image_path"])
+
+@app.get("/host/jobs/{job_id}/image/2")
+def download_job_image_2(job_id: int):
+
+    connection = get_connection()
+
+    job = connection.execute(
+        """
+        SELECT image_path_2
+        FROM jobs
+        WHERE id = ?
+        """,
+        (job_id,)
+    ).fetchone()
+
+    connection.close()
+
+    if job is None:
+        return {"error": "Job not found."}
+
+    if job["image_path_2"] is None:
+        return {"error": "This job has no second image."}
+
+    if not os.path.exists(job["image_path_2"]):
+        return {"error": "Second image file not found."}
+
+    return FileResponse(job["image_path_2"])
 
 
 
